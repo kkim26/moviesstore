@@ -1,0 +1,158 @@
+<div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="feedbackModalLabel">
+                    <i class="fas fa-heart text-danger"></i>
+                    How was your checkout experience?
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">
+                    Help us improve the GT Movie Store by sharing your thoughts about the checkout process!
+                </p>
+                <form id="feedbackForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="feedbackName" class="form-label">Name (Optional)</label>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="feedbackName" 
+                            name="name"
+                            placeholder="Your name (leave blank to remain anonymous)"
+                            maxlength="100"
+                        >
+                        <div class="form-text">Leave empty if you'd like to remain anonymous</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="feedbackText" class="form-label">Your Feedback *</label>
+                        <textarea 
+                            class="form-control" 
+                            id="feedbackText" 
+                            name="feedback_text"
+                            rows="4" 
+                            placeholder="Share your thoughts about the checkout process..."
+                            maxlength="500"
+                            required
+                        ></textarea>
+                        <div class="form-text">
+                            <span id="charCount">0</span>/500 characters
+                        </div>
+                        <div class="invalid-feedback" id="feedbackError"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button type="button" class="btn btn-primary" id="submitFeedback">
+                    <i class="fas fa-paper-plane"></i> Submit Feedback
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const feedbackModal = new bootstrap.Modal(document.getElementById('feedbackModal'));
+    const feedbackForm = document.getElementById('feedbackForm');
+    const submitBtn = document.getElementById('submitFeedback');
+    const feedbackText = document.getElementById('feedbackText');
+    const charCount = document.getElementById('charCount');
+    const feedbackError = document.getElementById('feedbackError');
+    
+    // Show modal automatically after checkout (you can customize this trigger)
+    setTimeout(function() {
+        feedbackModal.show();
+    }, 1000); // Show after 1 second
+    
+    // Character counter
+    feedbackText.addEventListener('input', function() {
+        const remaining = this.value.length;
+        charCount.textContent = remaining;
+        
+        if (remaining > 450) {
+            charCount.style.color = 'red';
+        } else if (remaining > 400) {
+            charCount.style.color = 'orange';
+        } else {
+            charCount.style.color = 'black';
+        }
+    });
+    
+    // Submit feedback
+    submitBtn.addEventListener('click', function() {
+        const formData = new FormData(feedbackForm);
+        
+        // Basic validation
+        if (!feedbackText.value.trim()) {
+            feedbackError.textContent = 'Please share your feedback before submitting.';
+            feedbackText.classList.add('is-invalid');
+            return;
+        }
+        
+        // Reset error state
+        feedbackText.classList.remove('is-invalid');
+        feedbackError.textContent = '';
+        
+        // Disable submit button during request
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+        
+        // Submit via AJAX
+        fetch('{% url "submit_checkout_feedback" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                const modalBody = document.querySelector('#feedbackModal .modal-body');
+                modalBody.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+                        <h4 class="mt-3 text-success">Thank you!</h4>
+                        <p class="text-muted">${data.message}</p>
+                    </div>
+                `;
+                
+                // Hide footer buttons
+                document.querySelector('#feedbackModal .modal-footer').style.display = 'none';
+                
+                // Auto-close after 2 seconds
+                setTimeout(() => {
+                    feedbackModal.hide();
+                }, 2000);
+            } else {
+                // Show errors
+                if (data.errors) {
+                    let errorMsg = '';
+                    for (const [field, errors] of Object.entries(data.errors)) {
+                        errorMsg += errors.join(', ') + ' ';
+                    }
+                    feedbackError.textContent = errorMsg;
+                    feedbackText.classList.add('is-invalid');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            feedbackError.textContent = 'An error occurred. Please try again.';
+            feedbackText.classList.add('is-invalid');
+        })
+        .finally(() => {
+            // Re-enable submit button
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Feedback';
+        });
+    });
+});
+</script>

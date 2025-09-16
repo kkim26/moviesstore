@@ -12,6 +12,21 @@
         </p>
       </div>
     </div>
+    
   </div>
 </div>
-{% endblock content %}
+
+{% include 'feedback_popup_modal.html' %}
+
+{% endblock %}
+
+<!-- Alternative: If you prefer to trigger the popup manually -->
+<!-- Add this JavaScript to trigger the popup when needed -->
+<script>
+// Option 1: Show popup immediately after page load
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+        const feedbackModal = new bootstrap.Modal(document.getElementById('feedbackModal'));
+        feedbackModal.show();
+    }, 1500); // Delay 1.5 seconds after page load
+});

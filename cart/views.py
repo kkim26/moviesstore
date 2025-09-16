@@ -4,6 +4,14 @@ from movies.models import Movie
 from .utils import calculate_cart_total
 from .models import Order, Item
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.contrib import messages
+from django.views.generic import ListView
+from django.core.paginator import Paginator
+from .models import CheckoutFeedback
+from .forms import CheckoutFeedbackForm
 
 
 def index(request):
@@ -52,8 +60,53 @@ def purchase(request):
         item.quantity = cart[str(movie.id)]
         item.save()
     request.session['cart'] = {}
-    template_data = {}
-    template_data['title'] = 'Purchase confirmation'
-    template_data['order_id'] = order.id
+    template_data = {
+        'title': 'Purchase confirmation',
+        'order_id': order.id,
+        'order': order,
+        'show_feedback_modal': True  # Flag to show the feedback modal
+    }
     return render(request, 'cart/purchase.html',
         {'template_data': template_data})
+
+def submit_checkout_feedback(request):
+    """Handle AJAX submission of checkout feedback"""
+    if request.method == 'POST':
+        form = CheckoutFeedbackForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({
+                'success': True,
+                'message': 'Thank you for your feedback!'
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors
+            })
+    return JsonResponse({'success': False, 'message': 'Invalid request'})
+
+class FeedbackListView(ListView):
+    """Display all checkout feedback on a separate page"""
+    model = CheckoutFeedback
+    template_name = 'checkout_feedback_list.html'
+    context_object_name = 'feedback_list'
+    paginate_by = 10
+    
+    def get_queryset(self):
+        return CheckoutFeedback.objects.all().order_by('-created_at')
+
+# Alternative function-based view for feedback list if you prefer
+def feedback_list_view(request):
+    """Function-based view to display all feedback"""
+    feedback_list = CheckoutFeedback.objects.all().order_by('-created_at')
+    paginator = Paginator(feedback_list, 10)  # Show 10 feedback per page
+    
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'feedback_list': page_obj,
+        'total_feedback': feedback_list.count()
+    }
+    return render(request, 'checkout_feedback_list.html', context)
